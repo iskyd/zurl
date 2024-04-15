@@ -1,10 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetpack-io/devbox/0.10.2/.schema/devbox.schema.json",
   "packages": [
-    "gcc@latest",
-    "github:nixos/nixpkgs#curl^out,dev",
-    "zig@latest",
-    "zls@latest"
+    "gcc@13.2.0",
+    "github:nixos/nixpkgs/8706b488716e310f02e5ddc94204dc3fa81d511e#curl^out,dev",
+    "zig@0.11.0",
+    "zls@0.11.0",
   ],
   "shell": {
     "init_hook": [
