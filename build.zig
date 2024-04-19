@@ -25,11 +25,13 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    //exe.addObjectFile(LazyPath{ .path = "/nix/store/wxwljhqszqzg2wlvbckc7h61p5k8ap2v-curl-8.4.0/lib/libcurl.so.4" });
-    // exe.addLibPath(".devbox/nix/profile/default/lib");
     exe.linkSystemLibrary("curl");
-    // exe.linkSystemLibrary("pthread");
     exe.linkLibC();
+
+    const clap = b.addModule("clap", .{
+        .source_file = .{ .path = "lib/clap/clap.zig" },
+    });
+    exe.addModule("clap", clap);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

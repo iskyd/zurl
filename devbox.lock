@@ -1,8 +1,8 @@
 {
   "lockfile_version": "1",
   "packages": {
-    "gcc@latest": {
-      "last_modified": "2024-03-22T11:26:23Z",
+    "gcc@13.2.0": {
+      "last_modified": "2024-03-22T07:26:23-04:00",
       "resolved": "github:NixOS/nixpkgs/a3ed7406349a9335cb4c2a71369b697cecd9d351#gcc",
       "source": "devbox-search",
       "version": "13.2.0",
@@ -149,8 +149,8 @@
         }
       }
     },
-    "zls@latest": {
-      "last_modified": "2024-03-22T11:26:23Z",
+    "zls@0.11.0": {
+      "last_modified": "2024-03-22T07:26:23-04:00",
       "resolved": "github:NixOS/nixpkgs/a3ed7406349a9335cb4c2a71369b697cecd9d351#zls",
       "source": "devbox-search",
       "version": "0.11.0",
