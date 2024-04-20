@@ -4,7 +4,6 @@ const curl = @cImport(@cInclude("curl/curl.h"));
 const c = @cImport(@cInclude("stddef.h"));
 const clap = @import("clap");
 const request = @import("request.zig");
-const http = std.http;
 
 pub fn main() !void {
     std.debug.print("Zurl. Curl wrapper for json requests.\n", .{});
