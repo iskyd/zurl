@@ -14,6 +14,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
 
     try storage.init("test.db");
+    try storage.save("test.db", "request1", "GET", "https://pricing.conio.com/api/v2.0/price/TIAeur/raw");
 
     const params = comptime clap.parseParamsComptime(
         \\-h, --help                   Display this help and exit.
