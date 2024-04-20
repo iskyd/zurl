@@ -10,11 +10,13 @@ pub const HttpRequestMethod = enum {
     OPTIONS,
 };
 
-pub const QueryParam = struct { key: []u8, value: []u8 };
+pub const QueryParam = struct { key: []const u8, value: []const u8 };
+pub const Header = struct { key: []const u8, value: []const u8 };
 
 pub const HttpRequest = struct {
     method: HttpRequestMethod,
     url: []const u8,
+    headers: ?[]Header = null,
     params: ?[]QueryParam = null,
     json: ?[]u8 = null,
 };
