@@ -2,8 +2,10 @@ const std = @import("std");
 const io = std.io;
 const curl = @cImport(@cInclude("curl/curl.h"));
 const c = @cImport(@cInclude("stddef.h"));
+const sqlite = @cImport(@cInclude("sqlite3.h"));
 const clap = @import("clap");
 const request = @import("request.zig");
+const storage = @import("storage.zig");
 
 pub fn main() !void {
     std.debug.print("Zurl. Curl wrapper for json requests.\n", .{});
@@ -11,9 +13,12 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
+    try storage.init("test.db");
+
     const params = comptime clap.parseParamsComptime(
         \\-h, --help                   Display this help and exit.
         \\-m, --method <HTTP_METHOD>   An option parameter, which takes the http method    
+        \\-s, --save                   Save the current request
         \\<URL>...
     );
 

@@ -25,6 +25,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe.linkSystemLibrary("sqlite3");
     exe.linkSystemLibrary("curl");
     exe.linkLibC();
 
