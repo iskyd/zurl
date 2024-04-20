@@ -7,25 +7,27 @@ const clap = @import("clap");
 const request = @import("request.zig");
 const storage = @import("storage.zig");
 
+const DB_NAME = "test.db";
+
 pub fn main() !void {
     std.debug.print("Zurl. Curl wrapper for json requests.\n", .{});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    try storage.init("test.db");
-    try storage.save("test.db", "request1", "GET", "https://pricing.conio.com/api/v2.0/price/TIAeur/raw");
-
     const params = comptime clap.parseParamsComptime(
         \\-h, --help                   Display this help and exit.
         \\-m, --method <HTTP_METHOD>   An option parameter, which takes the http method    
         \\-s, --save                   Save the current request
+        \\--requestname <STR> Save the current request using name
+        \\--init                       Init
         \\<URL>...
     );
 
     const parsers = comptime .{
         .HTTP_METHOD = clap.parsers.enumeration(request.HttpRequestMethod),
         .URL = clap.parsers.string,
+        .STR = clap.parsers.string,
     };
 
     var diag = clap.Diagnostic{};
@@ -43,6 +45,11 @@ pub fn main() !void {
         return clap.usage(std.io.getStdErr().writer(), clap.Help, &params);
     }
 
+    if (res.args.init != 0) {
+        try storage.init(DB_NAME);
+        return;
+    }
+
     if (res.args.method) |m|
         std.debug.print("--method = {s}\n", .{@tagName(m)});
 
@@ -50,6 +57,14 @@ pub fn main() !void {
 
     var url: []const u8 = res.positionals[0];
     std.debug.print("Url: {s}\n", .{url});
+
+    if (res.args.save != 0) {
+        var reqname = url;
+        if (res.args.requestname) |rn| {
+            reqname = rn;
+        }
+        try storage.save(DB_NAME, reqname, @tagName(res.args.method.?), url);
+    }
 
     _ = curl.curl_global_init(curl.CURL_GLOBAL_DEFAULT);
 
