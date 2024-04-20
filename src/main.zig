@@ -1,8 +1,5 @@
 const std = @import("std");
 const io = std.io;
-const curl = @cImport(@cInclude("curl/curl.h"));
-const c = @cImport(@cInclude("stddef.h"));
-const sqlite = @cImport(@cInclude("sqlite3.h"));
 const clap = @import("clap");
 const request = @import("request.zig");
 const storage = @import("storage.zig");
@@ -50,49 +47,18 @@ pub fn main() !void {
         return;
     }
 
-    if (res.args.method) |m|
-        std.debug.print("--method = {s}\n", .{@tagName(m)});
-
     std.debug.assert(res.positionals.len == 1);
-
+    const method: request.HttpRequestMethod = if (res.args.method) |m| m else request.HttpRequestMethod.GET;
     var url: []const u8 = res.positionals[0];
-    std.debug.print("Url: {s}\n", .{url});
 
     if (res.args.save != 0) {
         var reqname = url;
         if (res.args.requestname) |rn| {
             reqname = rn;
         }
-        try storage.save(DB_NAME, reqname, @tagName(res.args.method.?), url);
+        try storage.save(DB_NAME, reqname, @tagName(method), url);
     }
 
-    _ = curl.curl_global_init(curl.CURL_GLOBAL_DEFAULT);
-
-    switch (res.args.method.?) {
-        request.HttpRequestMethod.GET => {
-            const handler = curl.curl_easy_init();
-            // var headers = curl.curl_slist_append(h)
-            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, url.ptr);
-            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, )
-            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POST, "");
-            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, c.NULL);
-            const http_res = curl.curl_easy_perform(handler);
-            _ = http_res;
-            var status_code: c_long = 0;
-            _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
-            std.debug.print("Status Code: {}\n", .{status_code});
-            _ = curl.curl_easy_cleanup(handler);
-        },
-        else => {
-            std.debug.print("Method not supported yet\n", .{});
-            unreachable;
-        },
-    }
-
-    //if (http_res != curl.CURLE_OK) {
-    //std.debug.print("Error while executing request", .{});
-    //} else {
-    //std.debug.print("Request executed", .{});
-    //}
-
+    const req = request.HttpRequest{ .url = url, .method = method };
+    request.execute(req);
 }
