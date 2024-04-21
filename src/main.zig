@@ -18,6 +18,8 @@ pub fn main() !void {
         \\-m, --method <HTTP_METHOD>   An option parameter, which takes the http method
         \\-q, --query <STR>...         Query params
         \\-s, --save                   Save the current request
+        \\-f, --find                   Find the current request
+        \\-l, --list                   List all saved requests
         \\--requestname <STR> Save the current request using name
         \\--init                       Init
         \\<URL>...
@@ -49,6 +51,19 @@ pub fn main() !void {
         return;
     }
 
+    if (res.args.list != 0) {
+        try storage.list(DB_NAME);
+        return;
+    }
+
+    if (res.args.find != 0) {
+        const httpreq = try storage.get(allocator, DB_NAME, res.args.requestname.?);
+        if (httpreq != null) {
+            allocator.free(httpreq.?.url);
+        }
+        return;
+    }
+
     std.debug.assert(res.positionals.len == 1);
     const method: request.HttpRequestMethod = if (res.args.method) |m| m else request.HttpRequestMethod.GET;
     var queryparams = try allocator.alloc(request.QueryParam, res.args.query.len);
@@ -60,15 +75,15 @@ pub fn main() !void {
         std.debug.print("--query = {s}\n", .{q});
     }
     var url: []const u8 = res.positionals[0];
+    const req = request.HttpRequest{ .url = url, .method = method, .params = queryparams };
 
     if (res.args.save != 0) {
         var reqname = url;
         if (res.args.requestname) |rn| {
             reqname = rn;
         }
-        try storage.save(DB_NAME, reqname, @tagName(method), url);
+        try storage.save(DB_NAME, reqname, req);
     }
 
-    const req = request.HttpRequest{ .url = url, .method = method, .params = queryparams };
     request.execute(req);
 }

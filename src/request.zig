@@ -1,6 +1,7 @@
 const std = @import("std");
 const curl = @cImport(@cInclude("curl/curl.h"));
-const c = @cImport(@cInclude("stddef.h"));
+
+const NULL: ?*anyopaque = null;
 
 pub const HttpRequestMethod = enum {
     GET,
@@ -30,7 +31,7 @@ pub fn execute(req: HttpRequest) void {
             _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, req.url.ptr);
             // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, )
             // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POST, "");
-            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, c.NULL);
+            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, NULL);
             const http_res = curl.curl_easy_perform(handler);
             _ = http_res;
             var status_code: c_long = 0;
