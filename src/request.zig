@@ -21,8 +21,8 @@ pub const HttpRequest = struct {
     params: ?[]QueryParam = null,
     json: ?[]u8 = null,
 
-    pub fn getUrlWithQueryParams(self: HttpRequest, allocator: std.mem.Allocator) ![]u8 {
-        var cap: usize = self.url.len + 2;
+    pub fn getUrlWithQueryParamsCap(self: HttpRequest) usize {
+        var cap: usize = self.url.len;
         if (self.params != null and self.params.?.len > 0) {
             cap += 1; // + 1 for ?
             for (self.params.?) |param| {
@@ -31,18 +31,21 @@ pub const HttpRequest = struct {
                 cap += 1; // + 1 for =
             }
         }
+        return cap;
+    }
 
+    pub fn getUrlWithQueryParams(self: HttpRequest, allocator: std.mem.Allocator) ![]u8 {
+        const cap: usize = self.getUrlWithQueryParamsCap();
         var fullUrl: []u8 = try allocator.alloc(u8, cap);
         std.mem.copy(u8, fullUrl[0..self.url.len], self.url);
-
         if (self.params != null and self.params.?.len > 0) {
-            fullUrl[self.url.len + 1] = '?';
-            var cur: usize = self.url.len + 2;
+            fullUrl[self.url.len] = '?';
+            var cur: usize = self.url.len + 1;
             for (self.params.?) |param| {
-                std.mem.copy(u8, fullUrl[cur .. cur + param.key.len], param.key);
-                fullUrl[cur + param.key.len + 1] = '=';
-                cur += param.key.len + 2;
-                std.mem.copy(u8, fullUrl[cur .. cur + param.value.len], param.value);
+                std.mem.copy(u8, fullUrl[cur..(cur + param.key.len)], param.key);
+                fullUrl[cur + param.key.len] = '=';
+                cur += param.key.len + 1;
+                std.mem.copy(u8, fullUrl[cur..(cur + param.value.len)], param.value);
                 cur += param.value.len;
             }
         }
@@ -82,4 +85,26 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
             unreachable;
         },
     }
+}
+
+test "getUrlWithQueryParamsCap" {
+    const req = HttpRequest{ .url = "https://github.com/iskyd/zurl", .method = HttpRequestMethod.GET };
+    try std.testing.expectEqual(req.getUrlWithQueryParamsCap(), 29);
+    var params: [1]QueryParam = [1]QueryParam{QueryParam{ .key = "key", .value = "value" }};
+    const req2 = HttpRequest{ .url = "https://github.com/iskyd/zurl", .method = HttpRequestMethod.GET, .params = &params };
+    try std.testing.expectEqual(req2.getUrlWithQueryParamsCap(), 39);
+}
+
+test "getUrlWithQueryParams" {
+    const allocator = std.testing.allocator;
+    const req = HttpRequest{ .url = "https://github.com/iskyd/zurl", .method = HttpRequestMethod.GET };
+    const fullUrl = try req.getUrlWithQueryParams(allocator);
+    defer allocator.free(fullUrl);
+    try std.testing.expectEqualStrings("https://github.com/iskyd/zurl", fullUrl);
+
+    var params: [1]QueryParam = [1]QueryParam{QueryParam{ .key = "key", .value = "value" }};
+    const req2 = HttpRequest{ .url = "https://github.com/iskyd/zurl", .method = HttpRequestMethod.GET, .params = &params };
+    const fullUrl2 = try req2.getUrlWithQueryParams(allocator);
+    defer allocator.free(fullUrl2);
+    try std.testing.expectEqualStrings("https://github.com/iskyd/zurl?key=value", fullUrl2);
 }
