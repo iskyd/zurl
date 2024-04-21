@@ -60,7 +60,7 @@ pub fn save(dbname: []const u8, reqname: []const u8, req: request.HttpRequest) !
     _ = sqlite.sqlite3_close(db);
 }
 
-pub fn get(allocator: std.mem.Allocator, dbname: []const u8, reqname: []const u8) !?request.HttpRequest {
+pub fn get(allocator: std.mem.Allocator, dbname: []const u8, reqname: []const u8) !request.HttpRequest {
     var db: ?*sqlite.sqlite3 = undefined;
     _ = sqlite.sqlite3_open(dbname.ptr, &db);
 
@@ -128,4 +128,29 @@ pub fn list(dbname: []const u8) !void {
 
     _ = sqlite.sqlite3_finalize(stmt);
     _ = sqlite.sqlite3_close(db);
+}
+
+pub fn delete(dbname: []const u8, reqname: []const u8) !void {
+    var db: ?*sqlite.sqlite3 = undefined;
+    _ = sqlite.sqlite3_open(dbname.ptr, &db);
+
+    var stmt: ?*sqlite.sqlite3_stmt = undefined;
+    const sql = "DELETE FROM requests WHERE name=?";
+
+    var rc: c_int = 0;
+
+    rc = sqlite.sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
+    if (rc != sqlite.SQLITE_OK) {
+        return error.PrepareStmt;
+    }
+
+    rc = sqlite.sqlite3_bind_text(stmt, 1, reqname.ptr, -1, sqlite.SQLITE_TRANSIENT);
+    if (rc != sqlite.SQLITE_OK) {
+        return error.BindText;
+    }
+
+    rc = sqlite.sqlite3_step(stmt);
+    if (rc != sqlite.SQLITE_DONE) {
+        return error.Step;
+    }
 }

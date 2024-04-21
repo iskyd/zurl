@@ -17,10 +17,10 @@ pub fn main() !void {
         \\-h, --help                   Display this help and exit.
         \\-m, --method <HTTP_METHOD>   An option parameter, which takes the http method
         \\-q, --query <STR>...         Query params
-        \\-s, --save                   Save the current request
-        \\-f, --find                   Find the current request
+        \\-s, --save <STR>             Save the current request
+        \\-f, --find <STR>             Find the current request
+        \\-d, --delete <STR>             Delete the current request
         \\-l, --list                   List all saved requests
-        \\--requestname <STR> Save the current request using name
         \\--init                       Init
         \\<URL>...
     );
@@ -56,19 +56,31 @@ pub fn main() !void {
         return;
     }
 
-    if (res.args.find != 0) {
-        const httpreq = try storage.get(allocator, DB_NAME, res.args.requestname.?);
-        if (httpreq != null) {
-            allocator.free(httpreq.?.url);
-        }
+    if (res.args.find) |rn| {
+        const httpreq = storage.get(allocator, DB_NAME, rn) catch |err| switch (err) {
+            error.NotFound => {
+                std.debug.print("Request not found", .{});
+                return;
+            },
+            else => return err,
+        };
+        defer allocator.free(httpreq.url);
+        std.debug.print("Request: {s}\nUrl={s}\nMethod={s}\n", .{ rn, httpreq.url, @tagName(httpreq.method) });
         return;
     }
 
-    std.debug.assert(res.positionals.len == 1);
+    if (res.args.delete) |rn| {
+        try storage.delete(DB_NAME, rn);
+        std.debug.print("Request deleted\n", .{});
+        return;
+    }
+
+    std.debug.assert(res.positionals.len == 1); // url must exist
+
     const method: request.HttpRequestMethod = if (res.args.method) |m| m else request.HttpRequestMethod.GET;
+
     var queryparams = try allocator.alloc(request.QueryParam, res.args.query.len);
     defer allocator.free(queryparams);
-
     for (res.args.query, 0..) |q, i| {
         var it = std.mem.split(u8, q, "=");
         queryparams[i] = request.QueryParam{ .key = it.next().?, .value = it.next().? };
@@ -77,12 +89,8 @@ pub fn main() !void {
     var url: []const u8 = res.positionals[0];
     const req = request.HttpRequest{ .url = url, .method = method, .params = queryparams };
 
-    if (res.args.save != 0) {
-        var reqname = url;
-        if (res.args.requestname) |rn| {
-            reqname = rn;
-        }
-        try storage.save(DB_NAME, reqname, req);
+    if (res.args.save) |rn| {
+        try storage.save(DB_NAME, rn, req);
     }
 
     request.execute(req);
