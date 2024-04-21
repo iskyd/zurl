@@ -20,10 +20,43 @@ pub const HttpRequest = struct {
     headers: ?[]Header = null,
     params: ?[]QueryParam = null,
     json: ?[]u8 = null,
+
+    pub fn getUrlWithQueryParams(self: HttpRequest, allocator: std.mem.Allocator) ![]u8 {
+        var cap: usize = self.url.len + 2;
+        if (self.params != null and self.params.?.len > 0) {
+            cap += 1; // + 1 for ?
+            for (self.params.?) |param| {
+                cap += param.key.len;
+                cap += param.value.len;
+                cap += 1; // + 1 for =
+            }
+        }
+
+        var fullUrl: []u8 = try allocator.alloc(u8, cap);
+        std.mem.copy(u8, fullUrl[0..self.url.len], self.url);
+
+        if (self.params != null and self.params.?.len > 0) {
+            fullUrl[self.url.len + 1] = '?';
+            var cur: usize = self.url.len + 2;
+            for (self.params.?) |param| {
+                std.mem.copy(u8, fullUrl[cur .. cur + param.key.len], param.key);
+                fullUrl[cur + param.key.len + 1] = '=';
+                cur += param.key.len + 2;
+                std.mem.copy(u8, fullUrl[cur .. cur + param.value.len], param.value);
+                cur += param.value.len;
+            }
+        }
+
+        return fullUrl;
+    }
 };
 
-pub fn execute(req: HttpRequest) void {
+pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
     _ = curl.curl_global_init(curl.CURL_GLOBAL_DEFAULT);
+    const fullUrl = try req.getUrlWithQueryParams(allocator);
+    defer allocator.free(fullUrl);
+
+    errdefer comptime unreachable; // From now on, no more error
     switch (req.method) {
         HttpRequestMethod.GET => {
             const handler = curl.curl_easy_init();

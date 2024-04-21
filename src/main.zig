@@ -93,5 +93,5 @@ pub fn main() !void {
         try storage.save(DB_NAME, rn, req);
     }
 
-    request.execute(req);
+    try request.execute(allocator, req);
 }
