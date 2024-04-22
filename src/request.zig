@@ -49,7 +49,7 @@ pub const HttpRequest = struct {
                 cur += param.value.len;
             }
         }
-        fullUrl[cap - 1] = 0;
+        fullUrl[cap - 1] = 0; // Null terminator
 
         return fullUrl;
     }
@@ -64,7 +64,6 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
     switch (req.method) {
         HttpRequestMethod.GET => {
             const handler = curl.curl_easy_init();
-            // var headers = curl.curl_slist_append(h)
             _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
             if (req.headers != null and req.headers.?.len > 0) {
                 var headers: ?*curl.struct_curl_slist = null;

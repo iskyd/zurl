@@ -4,8 +4,6 @@ const clap = @import("clap");
 const request = @import("request.zig");
 const storage = @import("storage.zig");
 
-const DB_NAME = "test.db";
-
 pub fn main() !void {
     std.debug.print("Zurl. Curl wrapper for json requests.\n", .{});
 
@@ -20,8 +18,9 @@ pub fn main() !void {
         \\--header <STR>...            Headers
         \\-s, --save <STR>             Save the current request
         \\-f, --find <STR>             Find the current request
-        \\-d, --delete <STR>             Delete the current request
+        \\-d, --delete <STR>           Delete the current request
         \\-l, --list                   List all saved requests
+        \\--db <STR>                   Database name
         \\--init                       Init
         \\<URL>...
     );
@@ -48,17 +47,17 @@ pub fn main() !void {
     }
 
     if (res.args.init != 0) {
-        try storage.init(DB_NAME);
+        try storage.init(res.args.db.?);
         return;
     }
 
     if (res.args.list != 0) {
-        try storage.list(DB_NAME);
+        try storage.list(res.args.db.?);
         return;
     }
 
     if (res.args.find) |rn| {
-        const httpreq = storage.get(allocator, DB_NAME, rn) catch |err| switch (err) {
+        const httpreq = storage.get(allocator, res.args.db.?, rn) catch |err| switch (err) {
             error.NotFound => {
                 std.debug.print("Request not found", .{});
                 return;
@@ -66,12 +65,27 @@ pub fn main() !void {
             else => return err,
         };
         defer allocator.free(httpreq.url);
-        std.debug.print("Request: {s}\nUrl={s}\nMethod={s}\n", .{ rn, httpreq.url, @tagName(httpreq.method) });
+        defer {
+            if (httpreq.params != null) {
+                for (httpreq.params.?) |p| {
+                    allocator.free(p.key);
+                    allocator.free(p.value);
+                }
+                allocator.free(httpreq.params.?);
+            }
+        }
+        std.debug.print("Url: {s}\n", .{httpreq.url});
+        std.debug.print("Methodsss: {s}\n", .{@tagName(httpreq.method)});
+        if (httpreq.params != null and httpreq.params.?.len > 0) {
+            for (httpreq.params.?) |p| {
+                std.debug.print("Param: {s}={s}\n", .{ p.key, p.value });
+            }
+        }
         return;
     }
 
     if (res.args.delete) |rn| {
-        try storage.delete(DB_NAME, rn);
+        try storage.delete(res.args.db.?, rn);
         std.debug.print("Request deleted\n", .{});
         return;
     }
@@ -100,7 +114,7 @@ pub fn main() !void {
     const req = request.HttpRequest{ .url = url, .method = method, .params = queryparams, .headers = headers };
 
     if (res.args.save) |rn| {
-        try storage.save(DB_NAME, rn, req);
+        try storage.save(allocator, res.args.db.?, rn, req);
     }
 
     try request.execute(allocator, req);
