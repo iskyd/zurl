@@ -60,13 +60,22 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
     const fullUrl = try req.getUrlWithQueryParams(allocator);
     defer allocator.free(fullUrl);
 
-    errdefer comptime unreachable; // From now on, no more errors
+    // errdefer comptime unreachable; // From now on, no more errors
     switch (req.method) {
         HttpRequestMethod.GET => {
             const handler = curl.curl_easy_init();
             // var headers = curl.curl_slist_append(h)
             _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
-            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, )
+            if (req.headers != null and req.headers.?.len > 0) {
+                var headers: ?*curl.struct_curl_slist = null;
+                for (req.headers.?) |h| {
+                    const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
+                    defer allocator.free(hstr);
+
+                    headers = curl.curl_slist_append(headers, hstr.ptr);
+                }
+                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
+            }
             // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POST, "");
             // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, NULL);
             const http_res = curl.curl_easy_perform(handler);

@@ -17,6 +17,7 @@ pub fn main() !void {
         \\-h, --help                   Display this help and exit.
         \\-m, --method <HTTP_METHOD>   An option parameter, which takes the http method
         \\-q, --query <STR>...         Query params
+        \\--header <STR>...            Headers
         \\-s, --save <STR>             Save the current request
         \\-f, --find <STR>             Find the current request
         \\-d, --delete <STR>             Delete the current request
@@ -86,8 +87,17 @@ pub fn main() !void {
         queryparams[i] = request.QueryParam{ .key = it.next().?, .value = it.next().? };
         std.debug.print("--query = {s}\n", .{q});
     }
+
+    var headers = try allocator.alloc(request.Header, res.args.header.len);
+    defer allocator.free(headers);
+    for (res.args.header, 0..) |q, i| {
+        var it = std.mem.split(u8, q, "=");
+        headers[i] = request.Header{ .key = it.next().?, .value = it.next().? };
+        std.debug.print("--header = {s}\n", .{q});
+    }
+
     var url: []const u8 = res.positionals[0];
-    const req = request.HttpRequest{ .url = url, .method = method, .params = queryparams };
+    const req = request.HttpRequest{ .url = url, .method = method, .params = queryparams, .headers = headers };
 
     if (res.args.save) |rn| {
         try storage.save(DB_NAME, rn, req);
