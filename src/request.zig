@@ -22,7 +22,7 @@ pub const HttpRequest = struct {
     json: ?[]u8 = null,
 
     pub fn getUrlWithQueryParamsCap(self: HttpRequest) usize {
-        var cap: usize = self.url.len;
+        var cap: usize = self.url.len + 1; // add + 1 for null terminator
         if (self.params != null and self.params.?.len > 0) {
             cap += 1; // + 1 for ?
             for (self.params.?) |param| {
@@ -49,6 +49,7 @@ pub const HttpRequest = struct {
                 cur += param.value.len;
             }
         }
+        fullUrl[cap - 1] = 0;
 
         return fullUrl;
     }
@@ -59,12 +60,12 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
     const fullUrl = try req.getUrlWithQueryParams(allocator);
     defer allocator.free(fullUrl);
 
-    errdefer comptime unreachable; // From now on, no more error
+    errdefer comptime unreachable; // From now on, no more errors
     switch (req.method) {
         HttpRequestMethod.GET => {
             const handler = curl.curl_easy_init();
             // var headers = curl.curl_slist_append(h)
-            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, req.url.ptr);
+            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
             // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, )
             // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POST, "");
             // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, NULL);
@@ -89,10 +90,10 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
 
 test "getUrlWithQueryParamsCap" {
     const req = HttpRequest{ .url = "https://github.com/iskyd/zurl", .method = HttpRequestMethod.GET };
-    try std.testing.expectEqual(req.getUrlWithQueryParamsCap(), 29);
+    try std.testing.expectEqual(req.getUrlWithQueryParamsCap(), 30);
     var params: [1]QueryParam = [1]QueryParam{QueryParam{ .key = "key", .value = "value" }};
     const req2 = HttpRequest{ .url = "https://github.com/iskyd/zurl", .method = HttpRequestMethod.GET, .params = &params };
-    try std.testing.expectEqual(req2.getUrlWithQueryParamsCap(), 39);
+    try std.testing.expectEqual(req2.getUrlWithQueryParamsCap(), 40);
 }
 
 test "getUrlWithQueryParams" {
@@ -100,11 +101,11 @@ test "getUrlWithQueryParams" {
     const req = HttpRequest{ .url = "https://github.com/iskyd/zurl", .method = HttpRequestMethod.GET };
     const fullUrl = try req.getUrlWithQueryParams(allocator);
     defer allocator.free(fullUrl);
-    try std.testing.expectEqualStrings("https://github.com/iskyd/zurl", fullUrl);
+    try std.testing.expectEqualStrings("https://github.com/iskyd/zurl\x00", fullUrl);
 
     var params: [1]QueryParam = [1]QueryParam{QueryParam{ .key = "key", .value = "value" }};
     const req2 = HttpRequest{ .url = "https://github.com/iskyd/zurl", .method = HttpRequestMethod.GET, .params = &params };
     const fullUrl2 = try req2.getUrlWithQueryParams(allocator);
     defer allocator.free(fullUrl2);
-    try std.testing.expectEqualStrings("https://github.com/iskyd/zurl?key=value", fullUrl2);
+    try std.testing.expectEqualStrings("https://github.com/iskyd/zurl?key=value\x00", fullUrl2);
 }
