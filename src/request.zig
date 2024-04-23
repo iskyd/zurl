@@ -75,8 +75,7 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
                 }
                 _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
             }
-            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POST, "");
-            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, NULL);
+
             const http_res = curl.curl_easy_perform(handler);
             _ = http_res;
             var status_code: c_long = 0;
@@ -108,8 +107,6 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
             } else {
                 _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, "");
             }
-            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POST, "");
-            // _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, NULL);
             const http_res = curl.curl_easy_perform(handler);
             _ = http_res;
             var status_code: c_long = 0;

@@ -8,7 +8,7 @@ pub fn init(dbname: []const u8) !void {
     var db: ?*sqlite.sqlite3 = undefined;
     _ = sqlite.sqlite3_open(dbname.ptr, &db);
 
-    const sql = "CREATE TABLE IF NOT EXISTS requests(id INTEGER PRIMARY KEY, name TEXT UNIQUE, method TEXT, url TEXT, param TEXT, headers TEXT);";
+    const sql = "CREATE TABLE IF NOT EXISTS requests(id INTEGER PRIMARY KEY, name TEXT UNIQUE, method TEXT, url TEXT, params TEXT, headers TEXT, json TEXT);";
     const res = sqlite.sqlite3_exec(db, sql, null, null, null);
     if (res == sqlite.SQLITE_OK) {
         std.debug.print("Query executed with success\n", .{});
@@ -127,7 +127,7 @@ pub fn save(allocator: std.mem.Allocator, dbname: []const u8, name: []const u8, 
     _ = sqlite.sqlite3_open(dbname.ptr, &db);
 
     var stmt: ?*sqlite.sqlite3_stmt = undefined;
-    const sql = "INSERT INTO requests(id, name, method, url, params, headers) VALUES(?, ?, ?, ?, ?, ?)";
+    const sql = "INSERT INTO requests(id, name, method, url, params, headers, json) VALUES(?, ?, ?, ?, ?, ?, ?)";
 
     var rc: c_int = 0;
 
@@ -184,6 +184,18 @@ pub fn save(allocator: std.mem.Allocator, dbname: []const u8, name: []const u8, 
         }
     }
 
+    if (req.json == null) {
+        rc = sqlite.sqlite3_bind_null(stmt, 7);
+        if (rc != sqlite.SQLITE_OK) {
+            return error.BindText;
+        }
+    } else {
+        rc = sqlite.sqlite3_bind_text(stmt, 7, req.json.?.ptr, -1, sqlite.SQLITE_TRANSIENT);
+        if (rc != sqlite.SQLITE_OK) {
+            return error.BindText;
+        }
+    }
+
     rc = sqlite.sqlite3_step(stmt);
     if (rc != sqlite.SQLITE_DONE) {
         return error.Step;
@@ -198,7 +210,7 @@ pub fn get(allocator: std.mem.Allocator, dbname: []const u8, name: []const u8) !
     _ = sqlite.sqlite3_open(dbname.ptr, &db);
 
     var stmt: ?*sqlite.sqlite3_stmt = undefined;
-    const sql = "SELECT url, method, params, headers FROM requests WHERE name=?";
+    const sql = "SELECT url, method, params, headers, json FROM requests WHERE name=?";
 
     var rc: c_int = 0;
 
@@ -233,10 +245,23 @@ pub fn get(allocator: std.mem.Allocator, dbname: []const u8, name: []const u8) !
     const headersptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 3)))[0..headerssize];
     const headers: ?[]request.Header = try headersFromDB(allocator, headersptr);
 
+    const jsonsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 4));
+    var json: ?[]u8 = null;
+    if (jsonsize > 0) {
+        const jsonptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 4)))[0..jsonsize];
+        std.debug.print("json ptr {s}\n", .{jsonptr});
+
+        if (jsonptr.len > 0) {
+            std.debug.print("json in request\n", .{});
+            json = try allocator.alloc(u8, jsonptr.len);
+            std.mem.copy(u8, json.?[0..], jsonptr[0..]);
+        }
+    }
+
     _ = sqlite.sqlite3_finalize(stmt);
     _ = sqlite.sqlite3_close(db);
 
-    return request.HttpRequest{ .url = url, .method = method, .params = params, .headers = headers };
+    return request.HttpRequest{ .url = url, .method = method, .params = params, .headers = headers, .json = json };
 }
 
 pub fn list(dbname: []const u8) !void {
