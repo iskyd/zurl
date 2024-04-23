@@ -54,11 +54,35 @@ pub const HttpRequest = struct {
 
         return fullUrl;
     }
+
+    pub fn format(self: HttpRequest, actual_fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = actual_fmt;
+        _ = options;
+
+        try writer.print("=========INIT REQUEST==========\n", .{});
+        try writer.print("Url: {s}\nMethod: {s}\n", .{ self.url, @tagName(self.method) });
+        if (self.json != null) {
+            try writer.print("Json: {s}\n", .{self.json.?});
+        }
+        if (self.params != null and self.params.?.len > 0) {
+            for (self.params.?) |p| {
+                try writer.print("Param: {s}={s}\n", .{ p.key, p.value });
+            }
+        }
+        if (self.headers != null and self.headers.?.len > 0) {
+            for (self.headers.?) |h| {
+                try writer.print("Header: {s}={s}\n", .{ h.key, h.value });
+            }
+        }
+        try writer.print("=========END REQUEST==========\n", .{});
+    }
 };
 
 pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
     _ = curl.curl_global_init(curl.CURL_GLOBAL_DEFAULT);
+    std.debug.print("Url: {s}\n", .{req.url});
     const fullUrl = try req.getUrlWithQueryParams(allocator);
+    std.debug.print("fullUrl: {s}\n", .{fullUrl});
     defer allocator.free(fullUrl);
 
     const handler = curl.curl_easy_init();

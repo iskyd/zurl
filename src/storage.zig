@@ -132,12 +132,18 @@ fn createRequestFromDBStmt(allocator: std.mem.Allocator, stmt: *sqlite.sqlite3_s
     const method: request.HttpRequestMethod = std.meta.stringToEnum(request.HttpRequestMethod, methodptr).?;
 
     const paramssize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 2));
-    const paramsptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 2)))[0..paramssize];
-    const params: ?[]request.QueryParam = try paramsFromDB(allocator, paramsptr);
+    var params: ?[]request.QueryParam = null;
+    if (paramssize > 0) {
+        const paramsptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 2)))[0..paramssize];
+        params = try paramsFromDB(allocator, paramsptr);
+    }
 
     const headerssize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 3));
-    const headersptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 3)))[0..headerssize];
-    const headers: ?[]request.Header = try headersFromDB(allocator, headersptr);
+    var headers: ?[]request.Header = null;
+    if (headerssize > 0) {
+        const headersptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 3)))[0..headerssize];
+        headers = try headersFromDB(allocator, headersptr);
+    }
 
     const jsonsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 4));
     var json: ?[]u8 = null;
