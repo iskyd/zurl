@@ -61,136 +61,58 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
     const fullUrl = try req.getUrlWithQueryParams(allocator);
     defer allocator.free(fullUrl);
 
+    const handler = curl.curl_easy_init();
+    _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
+    if (req.headers != null and req.headers.?.len > 0) {
+        var headers: ?*curl.struct_curl_slist = null;
+        for (req.headers.?) |h| {
+            const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
+            defer allocator.free(hstr);
+            headers = curl.curl_slist_append(headers, hstr.ptr);
+        }
+        _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
+    }
+
     switch (req.method) {
-        HttpRequestMethod.GET => {
-            const handler = curl.curl_easy_init();
-            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
-            if (req.headers != null and req.headers.?.len > 0) {
-                var headers: ?*curl.struct_curl_slist = null;
-                for (req.headers.?) |h| {
-                    const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
-                    defer allocator.free(hstr);
-
-                    headers = curl.curl_slist_append(headers, hstr.ptr);
-                }
-                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
-            }
-
-            const http_res = curl.curl_easy_perform(handler);
-            _ = http_res;
-            var status_code: c_long = 0;
-            _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
-            std.debug.print("Status Code: {}\n", .{status_code});
-            _ = curl.curl_easy_cleanup(handler);
-            //if (http_res != curl.CURLE_OK) {
-            //std.debug.print("Error while executing request", .{});
-            //} else {
-            //std.debug.print("Request executed", .{});
-            //}
+        HttpRequestMethod.GET => {},
+        HttpRequestMethod.OPTIONS => {
+            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_CUSTOMREQUEST, "OPTIONS");
         },
         HttpRequestMethod.POST => {
-            const handler = curl.curl_easy_init();
-            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
-            if (req.headers != null and req.headers.?.len > 0) {
-                var headers: ?*curl.struct_curl_slist = null;
-                for (req.headers.?) |h| {
-                    const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
-                    defer allocator.free(hstr);
-
-                    headers = curl.curl_slist_append(headers, hstr.ptr);
-                }
-                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
-            }
             _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POST, @as(c_long, 1));
             if (req.json != null) {
                 _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, req.json.?.ptr);
             } else {
                 _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, "");
             }
-            const http_res = curl.curl_easy_perform(handler);
-            _ = http_res;
-            var status_code: c_long = 0;
-            _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
-            std.debug.print("Status Code: {}\n", .{status_code});
-            _ = curl.curl_easy_cleanup(handler);
-        },
-        HttpRequestMethod.OPTIONS => {
-            const handler = curl.curl_easy_init();
-            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
-            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_CUSTOMREQUEST, "OPTIONS");
-            if (req.headers != null and req.headers.?.len > 0) {
-                var headers: ?*curl.struct_curl_slist = null;
-                for (req.headers.?) |h| {
-                    const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
-                    defer allocator.free(hstr);
-
-                    headers = curl.curl_slist_append(headers, hstr.ptr);
-                }
-                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
-            }
-
-            const http_res = curl.curl_easy_perform(handler);
-            _ = http_res;
-            var status_code: c_long = 0;
-            _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
-            std.debug.print("Status Code: {}\n", .{status_code});
-            _ = curl.curl_easy_cleanup(handler);
         },
         HttpRequestMethod.PUT => {
-            const handler = curl.curl_easy_init();
-            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
             _ = curl.curl_easy_setopt(handler, curl.CURLOPT_CUSTOMREQUEST, "PUT");
-            if (req.headers != null and req.headers.?.len > 0) {
-                var headers: ?*curl.struct_curl_slist = null;
-                for (req.headers.?) |h| {
-                    const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
-                    defer allocator.free(hstr);
-
-                    headers = curl.curl_slist_append(headers, hstr.ptr);
-                }
-                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
-            }
             if (req.json != null) {
                 _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, req.json.?.ptr);
             } else {
                 _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, "");
             }
-
-            const http_res = curl.curl_easy_perform(handler);
-            _ = http_res;
-            var status_code: c_long = 0;
-            _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
-            std.debug.print("Status Code: {}\n", .{status_code});
-            _ = curl.curl_easy_cleanup(handler);
         },
         HttpRequestMethod.PATCH => {
-            const handler = curl.curl_easy_init();
-            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
             _ = curl.curl_easy_setopt(handler, curl.CURLOPT_CUSTOMREQUEST, "PATCH");
-            if (req.headers != null and req.headers.?.len > 0) {
-                var headers: ?*curl.struct_curl_slist = null;
-                for (req.headers.?) |h| {
-                    const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
-                    defer allocator.free(hstr);
-
-                    headers = curl.curl_slist_append(headers, hstr.ptr);
-                }
-                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
-            }
             if (req.json != null) {
                 _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, req.json.?.ptr);
             } else {
                 _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, "");
             }
-
-            const http_res = curl.curl_easy_perform(handler);
-            _ = http_res;
-            var status_code: c_long = 0;
-            _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
-            std.debug.print("Status Code: {}\n", .{status_code});
-            _ = curl.curl_easy_cleanup(handler);
         },
     }
+    const http_res = curl.curl_easy_perform(handler);
+    if (http_res != curl.CURLE_OK) {
+        std.debug.print("Error while executing request", .{});
+    } else {
+        std.debug.print("Request executed", .{});
+    }
+    var status_code: c_long = 0;
+    _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
+    std.debug.print("Status Code: {}\n", .{status_code});
+    _ = curl.curl_easy_cleanup(handler);
 }
 
 test "getUrlWithQueryParamsCap" {
