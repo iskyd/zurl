@@ -74,11 +74,25 @@ pub fn main() !void {
                 allocator.free(httpreq.params.?);
             }
         }
+        defer {
+            if (httpreq.headers != null) {
+                for (httpreq.headers.?) |h| {
+                    allocator.free(h.key);
+                    allocator.free(h.value);
+                }
+                allocator.free(httpreq.headers.?);
+            }
+        }
         std.debug.print("Url: {s}\n", .{httpreq.url});
         std.debug.print("Methodsss: {s}\n", .{@tagName(httpreq.method)});
         if (httpreq.params != null and httpreq.params.?.len > 0) {
             for (httpreq.params.?) |p| {
                 std.debug.print("Param: {s}={s}\n", .{ p.key, p.value });
+            }
+        }
+        if (httpreq.headers != null and httpreq.headers.?.len > 0) {
+            for (httpreq.headers.?) |h| {
+                std.debug.print("Header: {s}={s}\n", .{ h.key, h.value });
             }
         }
         return;
