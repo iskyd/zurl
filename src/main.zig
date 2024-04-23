@@ -21,6 +21,7 @@ pub fn main() !void {
         \\-d, --delete <STR>           Delete the current request
         \\-l, --list                   List all saved requests
         \\--db <STR>                   Database name
+        \\-j, --json <STR>             Json request
         \\--init                       Init
         \\<URL>...
     );
@@ -125,7 +126,17 @@ pub fn main() !void {
     }
 
     var url: []const u8 = res.positionals[0];
-    const req = request.HttpRequest{ .url = url, .method = method, .params = queryparams, .headers = headers };
+    var json: ?[]u8 = null;
+    if (res.args.json) |v| {
+        json = try allocator.alloc(u8, v.len);
+        std.mem.copy(u8, json.?[0..], v);
+    }
+    defer {
+        if (json != null) {
+            allocator.free(json.?);
+        }
+    }
+    const req = request.HttpRequest{ .url = url, .method = method, .params = queryparams, .headers = headers, .json = json };
 
     if (res.args.save) |rn| {
         try storage.save(allocator, res.args.db.?, rn, req);
