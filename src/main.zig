@@ -54,7 +54,7 @@ pub fn main() !void {
     }
 
     if (res.args.list != 0) {
-        try storage.list(res.args.db.?, res.args.filter);
+        try storage.list(allocator, res.args.db.?, res.args.filter);
         return;
     }
 

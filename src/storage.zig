@@ -122,6 +122,38 @@ fn headersFromDB(allocator: std.mem.Allocator, dbrepr: []const u8) !?[]request.H
     return headers;
 }
 
+fn createRequestFromDBStmt(allocator: std.mem.Allocator, stmt: *sqlite.sqlite3_stmt) !request.HttpRequest {
+    const urlsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 0));
+    const urlptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 0)))[0..urlsize];
+    var url: []u8 = try allocator.alloc(u8, urlptr.len);
+    std.mem.copy(u8, url[0..], urlptr[0..]);
+    const methodsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 1));
+    const methodptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 1)))[0..methodsize];
+    const method: request.HttpRequestMethod = std.meta.stringToEnum(request.HttpRequestMethod, methodptr).?;
+
+    const paramssize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 2));
+    const paramsptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 2)))[0..paramssize];
+    const params: ?[]request.QueryParam = try paramsFromDB(allocator, paramsptr);
+
+    const headerssize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 3));
+    const headersptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 3)))[0..headerssize];
+    const headers: ?[]request.Header = try headersFromDB(allocator, headersptr);
+
+    const jsonsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 4));
+    var json: ?[]u8 = null;
+    if (jsonsize > 0) {
+        const jsonptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 4)))[0..jsonsize];
+        std.debug.print("json ptr {s}\n", .{jsonptr});
+
+        if (jsonptr.len > 0) {
+            std.debug.print("json in request\n", .{});
+            json = try allocator.alloc(u8, jsonptr.len);
+            std.mem.copy(u8, json.?[0..], jsonptr[0..]);
+        }
+    }
+    return request.HttpRequest{ .url = url, .method = method, .params = params, .headers = headers, .json = json };
+}
+
 pub fn save(allocator: std.mem.Allocator, dbname: []const u8, name: []const u8, req: request.HttpRequest) !void {
     var db: ?*sqlite.sqlite3 = undefined;
     _ = sqlite.sqlite3_open(dbname.ptr, &db);
@@ -229,42 +261,15 @@ pub fn get(allocator: std.mem.Allocator, dbname: []const u8, name: []const u8) !
         return error.NotFound;
     }
 
-    const urlsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 0));
-    const urlptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 0)))[0..urlsize];
-    var url: []u8 = try allocator.alloc(u8, urlptr.len);
-    std.mem.copy(u8, url[0..], urlptr[0..]);
-    const methodsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 1));
-    const methodptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 1)))[0..methodsize];
-    const method: request.HttpRequestMethod = std.meta.stringToEnum(request.HttpRequestMethod, methodptr).?;
-
-    const paramssize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 2));
-    const paramsptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 2)))[0..paramssize];
-    const params: ?[]request.QueryParam = try paramsFromDB(allocator, paramsptr);
-
-    const headerssize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 3));
-    const headersptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 3)))[0..headerssize];
-    const headers: ?[]request.Header = try headersFromDB(allocator, headersptr);
-
-    const jsonsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 4));
-    var json: ?[]u8 = null;
-    if (jsonsize > 0) {
-        const jsonptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 4)))[0..jsonsize];
-        std.debug.print("json ptr {s}\n", .{jsonptr});
-
-        if (jsonptr.len > 0) {
-            std.debug.print("json in request\n", .{});
-            json = try allocator.alloc(u8, jsonptr.len);
-            std.mem.copy(u8, json.?[0..], jsonptr[0..]);
-        }
-    }
+    const req = try createRequestFromDBStmt(allocator, stmt.?);
 
     _ = sqlite.sqlite3_finalize(stmt);
     _ = sqlite.sqlite3_close(db);
 
-    return request.HttpRequest{ .url = url, .method = method, .params = params, .headers = headers, .json = json };
+    return req;
 }
 
-pub fn list(dbname: []const u8, name: ?[]const u8) !void {
+pub fn list(allocator: std.mem.Allocator, dbname: []const u8, name: ?[]const u8) !void {
     var db: ?*sqlite.sqlite3 = undefined;
     _ = sqlite.sqlite3_open(dbname.ptr, &db);
 
@@ -272,14 +277,14 @@ pub fn list(dbname: []const u8, name: ?[]const u8) !void {
     var rc: c_int = 0;
 
     if (name == null) {
-        const sql = "SELECT name, url, method FROM requests";
+        const sql = "SELECT url, method, params, headers, json, name FROM requests";
 
         rc = sqlite.sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
         if (rc != sqlite.SQLITE_OK) {
             return error.PrepareStmt;
         }
     } else {
-        const sql = "SELECT name, url, method FROM requests WHERE name LIKE ?";
+        const sql = "SELECT url, method, params, headers, json, name FROM requests WHERE name LIKE ?";
         std.debug.print("Filter for {s}\n", .{name.?});
 
         rc = sqlite.sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
@@ -298,15 +303,36 @@ pub fn list(dbname: []const u8, name: ?[]const u8) !void {
         if (row != sqlite.SQLITE_ROW) {
             return;
         }
+        const namesize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 5));
+        const nameptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 5)))[0..namesize];
+        const httpreq = try createRequestFromDBStmt(allocator, stmt.?);
 
-        const namesize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 0));
-        const nameptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 1)))[0..namesize];
-        const urlsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 1));
-        const urlptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 1)))[0..urlsize];
-        const methodsize: usize = @intCast(sqlite.sqlite3_column_bytes(stmt, 2));
-        const methodptr = @as([*c]const u8, @ptrCast(sqlite.sqlite3_column_text(stmt, 2)))[0..methodsize];
+        defer allocator.free(httpreq.url);
+        defer {
+            if (httpreq.params != null) {
+                for (httpreq.params.?) |p| {
+                    allocator.free(p.key);
+                    allocator.free(p.value);
+                }
+                allocator.free(httpreq.params.?);
+            }
+        }
+        defer {
+            if (httpreq.headers != null) {
+                for (httpreq.headers.?) |h| {
+                    allocator.free(h.key);
+                    allocator.free(h.value);
+                }
+                allocator.free(httpreq.headers.?);
+            }
+        }
+        defer {
+            if (httpreq.json != null) {
+                allocator.free(httpreq.json.?);
+            }
+        }
 
-        std.debug.print("Name: {s}, Url: {s}, Method: {s}\n", .{ nameptr, urlptr, methodptr });
+        std.debug.print("Name: {s}, Url: {s}, Method: {s}\n", .{ nameptr, httpreq.url, @tagName(httpreq.method) });
     }
 
     _ = sqlite.sqlite3_finalize(stmt);
