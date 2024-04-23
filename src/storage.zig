@@ -264,18 +264,33 @@ pub fn get(allocator: std.mem.Allocator, dbname: []const u8, name: []const u8) !
     return request.HttpRequest{ .url = url, .method = method, .params = params, .headers = headers, .json = json };
 }
 
-pub fn list(dbname: []const u8) !void {
+pub fn list(dbname: []const u8, name: ?[]const u8) !void {
     var db: ?*sqlite.sqlite3 = undefined;
     _ = sqlite.sqlite3_open(dbname.ptr, &db);
 
     var stmt: ?*sqlite.sqlite3_stmt = undefined;
-    const sql = "SELECT name, url, method FROM requests";
-
     var rc: c_int = 0;
 
-    rc = sqlite.sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
-    if (rc != sqlite.SQLITE_OK) {
-        return error.PrepareStmt;
+    if (name == null) {
+        const sql = "SELECT name, url, method FROM requests";
+
+        rc = sqlite.sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
+        if (rc != sqlite.SQLITE_OK) {
+            return error.PrepareStmt;
+        }
+    } else {
+        const sql = "SELECT name, url, method FROM requests WHERE name LIKE ?";
+        std.debug.print("Filter for {s}\n", .{name.?});
+
+        rc = sqlite.sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
+        if (rc != sqlite.SQLITE_OK) {
+            return error.PrepareStmt;
+        }
+
+        rc = sqlite.sqlite3_bind_text(stmt, 1, name.?.ptr, -1, sqlite.SQLITE_TRANSIENT);
+        if (rc != sqlite.SQLITE_OK) {
+            return error.BindText;
+        }
     }
 
     while (true) {

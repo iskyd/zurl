@@ -21,6 +21,7 @@ pub fn main() !void {
         \\-d, --delete <STR>           Delete the current request
         \\-l, --list                   List all saved requests
         \\--db <STR>                   Database name
+        \\--filter <STR>               Search for specific request
         \\-j, --json <STR>             Json request
         \\--init                       Init
         \\<URL>...
@@ -53,7 +54,7 @@ pub fn main() !void {
     }
 
     if (res.args.list != 0) {
-        try storage.list(res.args.db.?);
+        try storage.list(res.args.db.?, res.args.filter);
         return;
     }
 
