@@ -37,6 +37,7 @@ pub const HttpRequest = struct {
     pub fn getUrlWithQueryParams(self: HttpRequest, allocator: std.mem.Allocator) ![]u8 {
         const cap: usize = self.getUrlWithQueryParamsCap();
         var fullUrl: []u8 = try allocator.alloc(u8, cap);
+        errdefer comptime unreachable; // From now on, no more errors
         std.mem.copy(u8, fullUrl[0..self.url.len], self.url);
         if (self.params != null and self.params.?.len > 0) {
             fullUrl[self.url.len] = '?';
@@ -60,7 +61,6 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
     const fullUrl = try req.getUrlWithQueryParams(allocator);
     defer allocator.free(fullUrl);
 
-    // errdefer comptime unreachable; // From now on, no more errors
     switch (req.method) {
         HttpRequestMethod.GET => {
             const handler = curl.curl_easy_init();
@@ -114,9 +114,81 @@ pub fn execute(allocator: std.mem.Allocator, req: HttpRequest) !void {
             std.debug.print("Status Code: {}\n", .{status_code});
             _ = curl.curl_easy_cleanup(handler);
         },
-        else => {
-            std.debug.print("Method not supported yet\n", .{});
-            unreachable;
+        HttpRequestMethod.OPTIONS => {
+            const handler = curl.curl_easy_init();
+            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
+            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_CUSTOMREQUEST, "OPTIONS");
+            if (req.headers != null and req.headers.?.len > 0) {
+                var headers: ?*curl.struct_curl_slist = null;
+                for (req.headers.?) |h| {
+                    const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
+                    defer allocator.free(hstr);
+
+                    headers = curl.curl_slist_append(headers, hstr.ptr);
+                }
+                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
+            }
+
+            const http_res = curl.curl_easy_perform(handler);
+            _ = http_res;
+            var status_code: c_long = 0;
+            _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
+            std.debug.print("Status Code: {}\n", .{status_code});
+            _ = curl.curl_easy_cleanup(handler);
+        },
+        HttpRequestMethod.PUT => {
+            const handler = curl.curl_easy_init();
+            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
+            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_CUSTOMREQUEST, "PUT");
+            if (req.headers != null and req.headers.?.len > 0) {
+                var headers: ?*curl.struct_curl_slist = null;
+                for (req.headers.?) |h| {
+                    const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
+                    defer allocator.free(hstr);
+
+                    headers = curl.curl_slist_append(headers, hstr.ptr);
+                }
+                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
+            }
+            if (req.json != null) {
+                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, req.json.?.ptr);
+            } else {
+                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, "");
+            }
+
+            const http_res = curl.curl_easy_perform(handler);
+            _ = http_res;
+            var status_code: c_long = 0;
+            _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
+            std.debug.print("Status Code: {}\n", .{status_code});
+            _ = curl.curl_easy_cleanup(handler);
+        },
+        HttpRequestMethod.PATCH => {
+            const handler = curl.curl_easy_init();
+            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_URL, fullUrl.ptr);
+            _ = curl.curl_easy_setopt(handler, curl.CURLOPT_CUSTOMREQUEST, "PATCH");
+            if (req.headers != null and req.headers.?.len > 0) {
+                var headers: ?*curl.struct_curl_slist = null;
+                for (req.headers.?) |h| {
+                    const hstr = try std.fmt.allocPrint(allocator, "{s}: {s}", .{ h.key, h.value });
+                    defer allocator.free(hstr);
+
+                    headers = curl.curl_slist_append(headers, hstr.ptr);
+                }
+                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_HTTPHEADER, headers);
+            }
+            if (req.json != null) {
+                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, req.json.?.ptr);
+            } else {
+                _ = curl.curl_easy_setopt(handler, curl.CURLOPT_POSTFIELDS, "");
+            }
+
+            const http_res = curl.curl_easy_perform(handler);
+            _ = http_res;
+            var status_code: c_long = 0;
+            _ = curl.curl_easy_getinfo(handler, curl.CURLINFO_RESPONSE_CODE, &status_code);
+            std.debug.print("Status Code: {}\n", .{status_code});
+            _ = curl.curl_easy_cleanup(handler);
         },
     }
 }
