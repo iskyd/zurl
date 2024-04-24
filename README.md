@@ -10,7 +10,7 @@ Zurl uses sqlite3 to save the requests.
 
 Zurl can be built using devbox to create a dev shell with all the necessary dependencies.
 
-``` zig
+``` bash
 git clone git@github.com:iskyd/zurl.git
 cd zurl
 zig build
