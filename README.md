@@ -2,8 +2,7 @@
 
 Zurl is a command-line tool written in Zig, designed to provide a simplified interface to perform HTTP requests, inspired by the functionality of `curl`. Zurl aims to offer additional features and ease of use, including the ability to save and replay requests, automatic management of authentication requests, and more.
 
-Zurl uses libcurl under the hood to handle HTTP requests and responses.
-Zurl uses sqlite3 to save the requests.
+Zurl uses libcurl under the hood to handle HTTP requests and responses and sqlite3 as storage to save the requests.
 
 
 ### Building from source
