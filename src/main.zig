@@ -48,25 +48,33 @@ pub fn main() !void {
         return clap.usage(std.io.getStdErr().writer(), clap.Help, &params);
     }
 
+    var db: ?[]u8 = null;
+    if (std.os.getenv("ZURL_DB") != null) {
+        db = @constCast(std.os.getenv("ZURL_DB").?);
+    }
+    if (res.args.db != null) {
+        db = @constCast(res.args.db.?);
+    }
+
     if (res.args.init != 0) {
-        try storage.init(res.args.db.?);
+        try storage.init(db.?);
         return;
     }
 
     if (res.args.list != 0) {
-        try storage.list(allocator, res.args.db.?, res.args.filter);
+        try storage.list(allocator, db.?, res.args.filter);
         return;
     }
 
     if (res.args.delete) |rn| {
-        try storage.delete(res.args.db.?, rn);
+        try storage.delete(db.?, rn);
         std.debug.print("Request deleted\n", .{});
         return;
     }
 
     var httpreq: request.HttpRequest = undefined;
     if (res.args.find) |rn| {
-        httpreq = storage.get(allocator, res.args.db.?, rn) catch |err| switch (err) {
+        httpreq = storage.get(allocator, db.?, rn) catch |err| switch (err) {
             error.NotFound => {
                 std.debug.print("Request not found", .{});
                 return;
@@ -97,7 +105,7 @@ pub fn main() !void {
         httpreq = request.HttpRequest{ .url = url, .method = method, .params = queryparams, .headers = headers, .json = json };
 
         if (res.args.save) |rn| {
-            try storage.save(allocator, res.args.db.?, rn, httpreq);
+            try storage.save(allocator, db.?, rn, httpreq);
         }
     }
 
